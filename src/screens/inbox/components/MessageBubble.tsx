@@ -1,3 +1,4 @@
+// src/screens/inbox/components/MessageBubble.tsx
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -119,12 +120,10 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
 
   return (
     <>
-      {showDateSeparator && !!dateLabel && (
-        <View style={styles.dateSeparator}>
-          <Text style={styles.dateSeparatorText}>{dateLabel}</Text>
-        </View>
-      )}
-
+      {/* 
+        In inverted FlatList, the element rendered first in JSX is positioned at the bottom,
+        and the element rendered second is placed above it.
+      */}
       <View
         style={[
           styles.bubble,
@@ -198,11 +197,26 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
           {renderStatusIcon()}
         </View>
       </View>
+
+      {/* DATE SEPARATOR - Rendered after bubble so in inverted layout it displays ABOVE */}
+      {showDateSeparator && !!dateLabel && (
+        <View style={styles.dateSeparator}>
+          <Text style={styles.dateSeparatorText}>{dateLabel}</Text>
+        </View>
+      )}
     </>
   );
 };
 
-export const MessageBubble = React.memo(MessageBubbleComponent);
+export const MessageBubble = React.memo(MessageBubbleComponent, (prev, next) => {
+  return (
+    (prev.item.id || (prev.item as any)._id) === (next.item.id || (next.item as any)._id) &&
+    prev.item.status === next.item.status &&
+    prev.item.text === next.item.text &&
+    prev.item.mediaUrl === next.item.mediaUrl &&
+    prev.showDateSeparator === next.showDateSeparator
+  );
+});
 
 const styles = StyleSheet.create({
   dateSeparator: {

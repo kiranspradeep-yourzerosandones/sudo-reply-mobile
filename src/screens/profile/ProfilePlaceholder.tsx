@@ -19,7 +19,6 @@ import { spacing, borderRadius } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
 import { Avatar } from '../../components/ui/Avatar';
 import { Divider } from '../../components/ui/Divider';
-import { StatusDot } from '../../components/ui/StatusDot';
 import { useAuthStore } from '../../stores/authStore';
 import { useLogout } from '../../hooks/useAuth';
 
@@ -137,7 +136,6 @@ export const ProfilePlaceholder: React.FC = () => {
   const handleSetAvailability = (status: Availability) => {
     setLocalStatus(status);
     setShowAvailabilitySheet(false);
-    // TODO: PATCH /api3/profile/availability when backend endpoint is ready
   };
 
   const currentAvail = AVAILABILITY_OPTIONS.find(
@@ -232,28 +230,19 @@ export const ProfilePlaceholder: React.FC = () => {
               icon="person"
               iconBg="#E8F0FE"
               iconColor={colors.primary}
-              label="Edit Profile"
-              subtitle="Name, photo, contact info"
-              onPress={() => Alert.alert('Coming Soon', 'Profile editing will be available in the next update.')}
+              label="View Profile"
+              subtitle="Personal details, role & workspace"
+              onPress={() => navigation.navigate('ViewProfile')}
             />
             <Divider />
             <MenuItem
-              icon="lock-closed"
-              iconBg="#FEF3C7"
-              iconColor="#D97706"
-              label="Change Password"
-              subtitle="Update your password"
-              onPress={() => Alert.alert('Coming Soon', 'Password management will be available in the next update.')}
+              icon="notifications"
+              iconBg="#FEE2E2"
+              iconColor="#DC2626"
+              label="Notifications"
+              subtitle="View all alerts and updates"
+              onPress={() => navigation.navigate('NotificationCenter')}
             />
-            <Divider />
-            <MenuItem
-  icon="notifications"
-  iconBg="#FEE2E2"
-  iconColor="#DC2626"
-  label="Notifications"
-  subtitle="View all alerts and updates"
-  onPress={() => navigation.navigate('NotificationSettings')}
-/>
           </View>
         </View>
 
@@ -375,7 +364,6 @@ export const ProfilePlaceholder: React.FC = () => {
   );
 };
 
-// ── Styles ─────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -390,7 +378,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
-    paddingBottom: spacing.xl + 34, // extra space for card overlap
+    paddingBottom: spacing.xl + 34,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
     overflow: 'hidden',
@@ -422,7 +410,7 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     alignItems: 'center',
     marginHorizontal: spacing.base,
-    marginTop: -50, // overlap the banner
+    marginTop: -50,
     ...shadows.sm,
     borderWidth: 1,
     borderColor: colors.lightGrey,
@@ -467,7 +455,7 @@ const styles = StyleSheet.create({
   roleChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primaryLight || '#E8F0FE',
+    backgroundColor: '#E8F0FE',
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 8,

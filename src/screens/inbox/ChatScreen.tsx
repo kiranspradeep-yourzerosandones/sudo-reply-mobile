@@ -1,14 +1,14 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { 
-  View, 
-  Text, 
-  FlatList, 
-  StyleSheet, 
-  ActivityIndicator, 
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  ActivityIndicator,
   Alert,
   TouchableOpacity,
-  KeyboardAvoidingView, 
-  Platform 
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -52,14 +52,6 @@ type PendingMedia = {
   type: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE';
 };
 
-// Helper for Avatar Initials
-const getInitials = (name: string) => {
-  if (!name) return 'U';
-  const parts = name.trim().split(' ');
-  if (parts.length > 1) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.substring(0, 2).toUpperCase();
-};
-
 export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
   const insets = useSafeAreaInsets();
   const { conversationId: initialConversationId, contactName, contactId } = route.params as {
@@ -77,6 +69,8 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
   const [pendingMedia, setPendingMedia] = useState<PendingMedia | null>(null);
 
   const flatListRef = useRef<FlatList>(null);
+  const prevMessagesLength = useRef(0);
+
   const queryClient = useQueryClient();
 
   const { data: messages = [], isLoading } = useConversationMessages(conversationId);
@@ -98,12 +92,21 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
     staleTime: 60_000,
   });
 
+  // Reverse messages so the newest message is at index 0 for the inverted list
+  const reversedMessages = useMemo(() => {
+    if (!messages || messages.length === 0) return [];
+    return [...messages].reverse();
+  }, [messages]);
+
+  // Smooth scroll down ONLY when a new message is appended while already viewing
   useEffect(() => {
-    if (messages.length > 0) {
-      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 300);
+    if (prevMessagesLength.current > 0 && messages.length > prevMessagesLength.current) {
+      flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
     }
+    prevMessagesLength.current = messages.length;
   }, [messages.length]);
 
+  // Real-time socket message status updates
   useEffect(() => {
     if (!conversationId) return;
     const handler = (data: any) => {
@@ -125,7 +128,9 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
       }
     };
     socketService.on('message_status_update', handler);
-    return () => { socketService.off('message_status_update', handler); };
+    return () => {
+      socketService.off('message_status_update', handler);
+    };
   }, [conversationId, queryClient]);
 
   // ── Send Logic ──
@@ -133,12 +138,15 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
     const text = message.trim();
     if (!text || sendMessage.isPending) return;
     setMessage('');
-    sendMessage.mutate({ contactId, text }, {
-      onSuccess: (data: any) => {
-        const newConvId = data?.data?.conversationId || data?.conversationId;
-        if (newConvId && !conversationId) setConversationId(newConvId);
-      },
-    });
+    sendMessage.mutate(
+      { contactId, text },
+      {
+        onSuccess: (data: any) => {
+          const newConvId = data?.data?.conversationId || data?.conversationId;
+          if (newConvId && !conversationId) setConversationId(newConvId);
+        },
+      }
+    );
   }, [message, contactId, sendMessage, conversationId]);
 
   const handleSendMedia = useCallback(() => {
@@ -150,8 +158,47 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
     const caption = message.trim() || undefined;
     setPendingMedia(null);
     setMessage('');
-    sendMedia.mutate({ contactId, conversationId, fileUri: pendingMedia.uri, fileName: pendingMedia.name, mimeType: pendingMedia.mimeType, caption });
+    sendMedia.mutate({
+      contactId,
+      conversationId,
+      fileUri: pendingMedia.uri,
+      fileName: pendingMedia.name,
+      mimeType: pendingMedia.mimeType,
+      caption,
+    });
   }, [pendingMedia, message, contactId, conversationId, sendMedia]);
+
+        const handleSendVoice = useCallback(
+    async (uri: string, durationMs: number) => {
+      if (!conversationId) {
+        Alert.alert('Send a message first', 'Please send a text message before sending a voice note.');
+        return;
+      }
+
+      const fileName = `voice_${Date.now()}.m4a`;
+      const mimeType = 'audio/mp4';
+
+      sendMedia.mutate(
+        {
+          contactId,
+          conversationId,
+          fileUri: uri,
+          fileName,
+          mimeType,
+          isVoiceNote: true, // <-- triggers Ogg/Opus conversion and native WhatsApp PTT
+        },
+        {
+          onError: (err: any) => {
+            Alert.alert(
+              'Voice Send Failed',
+              err?.response?.data?.message || err?.response?.data?.error || 'Failed to send audio message'
+            );
+          },
+        }
+      );
+    },
+    [conversationId, contactId, sendMedia]
+  );
 
   const handleSendQuickReply = useCallback(() => {
     if (!selectedQR || sendQuickReply.isPending) return;
@@ -202,31 +249,60 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
   const pickFromCamera = async () => {
     setShowAttachMenu(false);
     const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) { Alert.alert('Permission needed', 'Camera access is required.'); return; }
+    if (!perm.granted) {
+      Alert.alert('Permission needed', 'Camera access is required.');
+      return;
+    }
     const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images', 'videos'], quality: 0.8 });
     if (!result.canceled && result.assets[0]) {
       const a = result.assets[0];
       const isVideo = a.type === 'video';
-      setPendingMedia({ uri: a.uri, name: a.fileName || `capture_${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`, mimeType: a.mimeType || (isVideo ? 'video/mp4' : 'image/jpeg'), type: isVideo ? 'VIDEO' : 'IMAGE' });
+      setPendingMedia({
+        uri: a.uri,
+        name: a.fileName || `capture_${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`,
+        mimeType: a.mimeType || (isVideo ? 'video/mp4' : 'image/jpeg'),
+        type: isVideo ? 'VIDEO' : 'IMAGE',
+      });
     }
   };
 
   const pickFromGallery = async () => {
     setShowAttachMenu(false);
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) { Alert.alert('Permission needed', 'Photo library access is required.'); return; }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images', 'videos'], quality: 0.8, allowsMultipleSelection: false });
+    if (!perm.granted) {
+      Alert.alert('Permission needed', 'Photo library access is required.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images', 'videos'],
+      quality: 0.8,
+      allowsMultipleSelection: false,
+    });
     if (!result.canceled && result.assets[0]) {
       const a = result.assets[0];
       const isVideo = a.type === 'video';
-      setPendingMedia({ uri: a.uri, name: a.fileName || `media_${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`, mimeType: a.mimeType || (isVideo ? 'video/mp4' : 'image/jpeg'), type: isVideo ? 'VIDEO' : 'IMAGE' });
+      setPendingMedia({
+        uri: a.uri,
+        name: a.fileName || `media_${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`,
+        mimeType: a.mimeType || (isVideo ? 'video/mp4' : 'image/jpeg'),
+        type: isVideo ? 'VIDEO' : 'IMAGE',
+      });
     }
   };
 
   const pickDocument = async () => {
     setShowAttachMenu(false);
     const result = await DocumentPicker.getDocumentAsync({
-      type: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'image/*', 'video/*', 'audio/*'],
+      type: [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'image/*',
+        'video/*',
+        'audio/*',
+      ],
       copyToCacheDirectory: true,
     });
     if (result.canceled) return;
@@ -284,39 +360,55 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
         </TouchableOpacity>
       </View>
 
+      {/* ── Message Area ── */}
       {isLoading ? (
-        <View style={styles.center}><ActivityIndicator size="small" color={colors.primary} /></View>
+        <View style={styles.center}>
+          <ActivityIndicator size="small" color={colors.primary} />
+        </View>
+      ) : reversedMessages.length === 0 ? (
+        <View style={styles.center}>
+          <Text style={styles.emptyText}>
+            {conversationId ? 'No messages yet.' : 'Send a message to start chatting!'}
+          </Text>
+        </View>
       ) : (
         <FlatList
           ref={flatListRef}
-          data={messages}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item, index }) => (
-            <MessageBubble
-              item={item}
-              showDateSeparator={index === 0 || new Date(messages[index - 1].createdAt).toDateString() !== new Date(item.createdAt).toDateString()}
-            />
-          )}
+          data={reversedMessages}
+          inverted
+          keyExtractor={(item, index) => item.id || (item as any)._id || `msg-${index}-${item.createdAt}`}
+          renderItem={({ item, index }) => {
+            const isFirstOfDay =
+              index === reversedMessages.length - 1 ||
+              new Date(item.createdAt).toDateString() !==
+                new Date(reversedMessages[index + 1]?.createdAt).toDateString();
+
+            return <MessageBubble item={item} showDateSeparator={isFirstOfDay} />;
+          }}
           contentContainerStyle={styles.messagesList}
           showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.center}>
-              <Text style={styles.emptyText}>
-                {conversationId ? 'No messages yet.' : 'Send a message to start chatting!'}
-              </Text>
-            </View>
-          }
         />
       )}
 
       {pendingMedia && <MediaPreview media={pendingMedia} onRemove={() => setPendingMedia(null)} />}
-      {selectedQR && !pendingMedia && <QuickReplyChip title={selectedQR.title} onClear={() => { setSelectedQR(null); setMessage(''); }} />}
-      {slashSearch !== null && <SlashSuggestions search={slashSearch} quickReplies={quickReplies} onSelect={handleSlashSelect} />}
+      {selectedQR && !pendingMedia && (
+        <QuickReplyChip
+          title={selectedQR.title}
+          onClear={() => {
+            setSelectedQR(null);
+            setMessage('');
+          }}
+        />
+      )}
+      {slashSearch !== null && (
+        <SlashSuggestions search={slashSearch} quickReplies={quickReplies} onSelect={handleSlashSelect} />
+      )}
 
       <MessageInput
         message={message}
         onChangeText={handleMessageChange}
         onSend={handleSend}
+        onSendVoice={handleSendVoice}
         onAttach={() => setShowAttachMenu(true)}
         onTemplate={() => setShowTemplatePicker(true)}
         isSending={isSending}
@@ -346,11 +438,11 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: '#F8F9FB' // Very light neutral bg
+  container: {
+    flex: 1,
+    backgroundColor: '#F8F9FB',
   },
- header: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -374,11 +466,6 @@ const styles = StyleSheet.create({
     height: 40,
     marginRight: 12,
   },
-  avatarText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
   headerTextWrap: {
     flex: 1,
     justifyContent: 'center',
@@ -392,18 +479,17 @@ const styles = StyleSheet.create({
     color: colors.secondaryGrey,
     marginTop: 2,
   },
-  messagesList: { 
-    paddingHorizontal: 14, 
+  messagesList: {
+    paddingHorizontal: 14,
     paddingVertical: 12,
-    flexGrow: 1,
   },
-  center: { 
-    flex: 1, 
-    alignItems: 'center', 
-    justifyContent: 'center' 
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyText: {
     fontSize: 11,
     color: '#9CA3AF',
-  }
+  },
 });

@@ -34,8 +34,15 @@ export const formatDateSeparator = (dateStr: string): string => {
   return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 };
 
+/** Formats time into 12-hour AM/PM format (e.g. 9:41 am, 2:15 pm) */
 export const formatMessageTime = (dateStr: string): string => {
   const date = new Date(dateStr);
   if (isNaN(date.getTime())) return '';
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  let hours = date.getHours();
+  const minutes = date.getMinutes();
+  const ampm = hours >= 12 ? 'pm' : 'am';
+  hours = hours % 12;
+  hours = hours ? hours : 12; // 0 becomes 12
+  const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes;
+  return `${hours}:${formattedMinutes} ${ampm}`;
 };

@@ -139,8 +139,9 @@ export const useSendMediaMessage = () => {
       fileUri,
       fileName,
       mimeType,
-            conversationId,
+      conversationId,
       caption,
+      isVoiceNote,
     }: {
       contactId: string;
       fileUri: string;
@@ -148,6 +149,7 @@ export const useSendMediaMessage = () => {
       mimeType: string;
       conversationId?: string | null;
       caption?: string;
+      isVoiceNote?: boolean;
     }) => {
       const formData = new FormData();
       formData.append('file', {
@@ -155,11 +157,16 @@ export const useSendMediaMessage = () => {
         name: fileName,
         type: mimeType,
       } as any);
+
       if (conversationId) {
         formData.append('conversationId', conversationId);
       }
       if (caption) {
         formData.append('caption', caption);
+      }
+      // Pass isVoiceNote so the backend runs convertToOggOpus & sets voice: true
+      if (isVoiceNote) {
+        formData.append('isVoiceNote', 'true');
       }
 
       const { data } = await api.post(
@@ -167,7 +174,7 @@ export const useSendMediaMessage = () => {
         formData,
         {
           headers: { 'Content-Type': 'multipart/form-data' },
-          timeout: 120_000, // 2 min for large files
+          timeout: 120_000,
         }
       );
       return data;

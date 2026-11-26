@@ -6,17 +6,16 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
-import { spacing, borderRadius } from '../../theme/spacing';
+import { spacing } from '../../theme/spacing';
 import { Avatar } from '../../components/ui/Avatar';
 import { Card } from '../../components/ui/Card';
-import { useContact, useBlockContact, useDeleteContact } from '../../hooks/useContacts';
+import { useContact } from '../../hooks/useContacts';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 type Props = NativeStackScreenProps<any, 'ContactDetail'>;
@@ -25,8 +24,6 @@ export const ContactDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const insets = useSafeAreaInsets();
   const { id } = route.params as { id: string };
   const { data: contact, isLoading } = useContact(id);
-  const blockMutation = useBlockContact();
-  const deleteMutation = useDeleteContact();
 
   if (isLoading) {
     return (
@@ -44,37 +41,7 @@ export const ContactDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     );
   }
 
-  const handleBlock = () => {
-    const action = contact.isBlocked ? 'Unblock' : 'Block';
-    Alert.alert(`${action} Contact`, `${action} "${contact.name}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: action,
-        style: contact.isBlocked ? 'default' : 'destructive',
-        onPress: () => blockMutation.mutate({ id, block: !contact.isBlocked }),
-      },
-    ]);
-  };
-
-  const handleDelete = () => {
-    Alert.alert('Delete Contact', `Permanently remove "${contact.name}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          deleteMutation.mutate(id);
-          navigation.goBack();
-        },
-      },
-    ]);
-  };
-
   const handleMessage = () => {
-    if (contact.isBlocked) {
-      Alert.alert('Blocked Contact', 'Unblock this contact before messaging.');
-      return;
-    }
     // Navigate to Chat with no conversationId (ChatScreen handles the "new conversation" case)
     navigation.navigate('Inbox', {
       screen: 'Chat',
@@ -108,10 +75,7 @@ export const ContactDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
           {/* Primary Message CTA */}
           <TouchableOpacity
-            style={[
-              styles.messageCta,
-              contact.isBlocked && styles.messageCtaDisabled,
-            ]}
+            style={styles.messageCta}
             onPress={handleMessage}
             activeOpacity={0.8}
           >
@@ -128,37 +92,7 @@ export const ContactDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             label="Added"
             value={new Date(contact.createdAt).toLocaleDateString()}
           />
-          <InfoRow
-            icon="shield-outline"
-            label="Status"
-            value={contact.isBlocked ? 'Blocked' : 'Active'}
-            valueColor={contact.isBlocked ? '#DC2626' : '#16A34A'}
-          />
         </Card>
-
-        {/* Actions */}
-        <View style={styles.actions}>
-          <TouchableOpacity style={styles.actionButton} onPress={handleBlock}>
-            <Ionicons
-              name={contact.isBlocked ? 'lock-open-outline' : 'ban-outline'}
-              size={20}
-              color={contact.isBlocked ? '#16A34A' : '#DC2626'}
-            />
-            <Text
-              style={[
-                styles.actionText,
-                { color: contact.isBlocked ? '#16A34A' : '#DC2626' },
-              ]}
-            >
-              {contact.isBlocked ? 'Unblock' : 'Block'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionButton} onPress={handleDelete}>
-            <Ionicons name="trash-outline" size={20} color="#DC2626" />
-            <Text style={[styles.actionText, { color: '#DC2626' }]}>Delete</Text>
-          </TouchableOpacity>
-        </View>
       </ScrollView>
     </View>
   );
@@ -168,19 +102,15 @@ const InfoRow = ({
   icon,
   label,
   value,
-  valueColor,
 }: {
   icon: string;
   label: string;
   value: string;
-  valueColor?: string;
 }) => (
   <View style={styles.infoRow}>
     <Ionicons name={icon as any} size={18} color={colors.secondaryGrey} />
     <Text style={styles.infoLabel}>{label}</Text>
-    <Text style={[styles.infoValue, valueColor ? { color: valueColor } : undefined]}>
-      {value}
-    </Text>
+    <Text style={styles.infoValue}>{value}</Text>
   </View>
 );
 
@@ -217,11 +147,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  messageCtaDisabled: {
-    backgroundColor: '#A6A6A6',
-    shadowOpacity: 0,
-    elevation: 0,
-  },
   messageCtaText: {
     color: colors.white,
     fontSize: 15,
@@ -241,18 +166,5 @@ const styles = StyleSheet.create({
     width: 60,
   },
   infoValue: { ...typography.label, color: colors.darkGrey, flex: 1, textAlign: 'right' },
-  actions: { flexDirection: 'row', gap: spacing.md },
-  actionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.lightGrey,
-  },
-  actionText: { ...typography.label },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });
