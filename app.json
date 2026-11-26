@@ -18,10 +18,14 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.sudoreply.mobile",
       "infoPlist": {
-        "NSContactsUsageDescription": "Sudo Reply needs access to your contacts to import them into your CRM."
+        "NSContactsUsageDescription": "Sudo Reply needs access to your contacts to import them into your CRM.",
+        "NSMicrophoneUsageDescription": "Sudo Reply needs access to your microphone to record voice messages.",
+        "NSCameraUsageDescription": "Sudo Reply needs access to your camera to take photos and send them.",
+        "NSPhotoLibraryUsageDescription": "Sudo Reply needs access to your photos to attach and send media files."
       }
     },
     "android": {
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#125EF2"
@@ -29,6 +33,14 @@
       "package": "com.sudoreply.mobile",
       "googleServicesFile": "./google-services.json",
       "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
         "android.permission.READ_CONTACTS",
         "android.permission.POST_NOTIFICATIONS"
       ]
@@ -50,10 +62,19 @@
           "iosUrlScheme": "com.googleusercontent.apps.73639182000-vh6bmq0unbpecadgshv4f1ts883eqnv8"
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36
+          }
+        }
+      ]
     ],
     "extra": {
-      "apiUrl": "http://192.168.29.69:5000",
+      "apiUrl": "https://api.sudoreply.com",
       "eas": {
         "projectId": "6292ddf3-0f58-4832-9e8d-6e12f98b62f3"
       }
