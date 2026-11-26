@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Git
+.git/
+.github/
+
+# Expo / React Native
+.expo/
+.expo-shared/
+dist/
+web-build/
+
+# iOS / Android native build artifacts
+ios/
+android/
+
+# Environment / Keystore files you DO want to ignore from EAS
+.env*.local
+*.keystore
+*.jks
+
+# DO NOT put google-services.json here!
+# Leaving it out allows EAS CLI to upload it directly without touching Git.
