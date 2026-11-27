@@ -178,6 +178,7 @@ export const MainTabs: React.FC = () => {
 
   return (
     <Tab.Navigator
+      backBehavior="history" // <-- ADD THIS LINE
       screenOptions={{ headerShown: false }}
       tabBar={({ state, descriptors, navigation }) => {
         // ── Hide tab bar on inner screens ──

@@ -121,4 +121,15 @@ export const ENDPOINTS = {
     clearAll:   '/tenant/notifications/clear-all',
     delete:     (id: string) => `/tenant/notifications/${id}`,
   },
+
+  calls: {
+    checkPermission: (contactId: string) => `/tenant/whatsapp/calls/permissions/check/${contactId}`,
+    requestPermission: '/tenant/whatsapp/calls/permissions/request',
+    initiate: '/tenant/whatsapp/calls/initiate',
+    terminate: '/tenant/whatsapp/calls/terminate',
+    accept: '/tenant/whatsapp/calls/accept',
+    reject: '/tenant/whatsapp/calls/reject',
+    conversationCalls: (conversationId: string) => `/tenant/whatsapp/calls/conversation/${conversationId}`,
+  },
+
 } as const;

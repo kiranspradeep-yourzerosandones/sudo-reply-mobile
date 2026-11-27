@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { View, ActivityIndicator, Text } from 'react-native';
+import { View, ActivityIndicator, Text, BackHandler, Platform } from 'react-native';
 import * as Font from 'expo-font';
 import { AppProviders } from './src/providers/AppProviders';
 import { RootNavigator } from './src/navigation/RootNavigator';
@@ -9,11 +9,27 @@ import { pushNotificationService } from './src/services/pushNotificationService'
 import { useAuthStore } from './src/stores/authStore';
 import apiClient from './src/services/api';
 import { ENDPOINTS } from './src/config/api';
-import { navigate } from './src/navigation/navigationRef';
+import { navigate, navigationRef } from './src/navigation/navigationRef';
 
 export default function App() {
   const [fontsReady, setFontsReady] = useState(false);
   const pushTokenSentRef = useRef(false);
+
+  // ── Intercept Android swipe-back gesture / hardware back button ──
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+
+    const onBackPress = () => {
+      if (navigationRef.isReady() && navigationRef.canGoBack()) {
+        navigationRef.goBack();
+        return true; // Handled by React Navigation -> DO NOT close app
+      }
+      return false; // At root screen -> allow Android to exit app normally
+    };
+
+    const backSub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backSub.remove();
+  }, []);
 
   useEffect(() => {
     const loadFonts = async () => {
@@ -43,13 +59,11 @@ export default function App() {
       }
     });
 
-        // ── Listen for notification taps → navigate to chat ──
+    // ── Listen for notification taps → navigate to chat ──
     pushNotificationService.startListening(
-      // onNotification (foreground)
       (notification) => {
         console.log('🔔 Foreground notification:', notification);
       },
-      // onResponse (tap)
       (response) => {
         const data = response?.notification?.request?.content?.data;
         console.log('🔔 Notification tapped:', data);

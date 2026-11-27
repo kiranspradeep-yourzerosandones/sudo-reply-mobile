@@ -243,3 +243,68 @@ export const useSendQuickReply = () => {
     },
   });
 };
+
+
+export const useUpdateConversationStatus = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: 'OPEN' | 'CLOSED' | 'SOLVED' }) => {
+      const { data } = await api.patch(ENDPOINTS.conversations.updateStatus(id), { status });
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['conversations'] });
+      qc.invalidateQueries({ queryKey: ['conversation-detail'] });
+    },
+  });
+};
+
+export const usePinConversation = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await api.patch(ENDPOINTS.conversations.pin(id));
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['conversations'] });
+      qc.invalidateQueries({ queryKey: ['conversation-detail'] });
+    },
+  });
+};
+
+export const useConversationByContact = (contactId: string | null) => {
+  return useQuery({
+    queryKey: ['conversation-detail', contactId],
+    queryFn: async () => {
+      const { data } = await api.get(ENDPOINTS.conversations.getByContact(contactId!));
+      return data.data?.conversation || data.conversation || data.data || data;
+    },
+    enabled: !!contactId,
+    staleTime: 30_000,
+  });
+};
+
+export const useConversationMedia = (conversationId: string | null) => {
+  return useQuery({
+    queryKey: ['conversation-media', conversationId],
+    queryFn: async () => {
+      const { data } = await api.get(ENDPOINTS.conversations.media(conversationId!));
+      return data.data?.media || data.media || data.data || [];
+    },
+    enabled: !!conversationId,
+    staleTime: 30_000,
+  });
+};
+
+export const useArchivedConversations = () => {
+  return useQuery({
+    queryKey: ['conversations', 'archived'],
+    queryFn: async () => {
+      const { data } = await api.get(ENDPOINTS.conversations.archived);
+      const list = data?.data?.conversations || data?.conversations || data?.data || [];
+      return Array.isArray(list) ? (list as Conversation[]) : [];
+    },
+    refetchInterval: 15_000,
+  });
+};
