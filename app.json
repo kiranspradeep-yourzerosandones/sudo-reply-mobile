@@ -24,8 +24,8 @@
         "NSPhotoLibraryUsageDescription": "Sudo Reply needs access to your photos to attach and send media files."
       }
     },
-        "android": {
-      "versionCode": 4,
+    "android": {
+      "versionCode": 6,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#125EF2"
@@ -71,8 +71,8 @@
         "expo-build-properties",
         {
           "android": {
-            "compileSdkVersion": 36,
-            "targetSdkVersion": 36
+            "compileSdkVersion": 34,
+            "targetSdkVersion": 34
           }
         }
       ]
